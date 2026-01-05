@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-gray-900 dark:bg-[#0B0B0F] dark:text-gray-100;
+  }
+}
+.bg-custom-color .translate-x-0.span:nth-child(3) {
+    background-color: blue!important;
+}
+.bg-custom-color .translate-x-24px.span:nth-child(3) {
+    background-color: red!important;
+}
