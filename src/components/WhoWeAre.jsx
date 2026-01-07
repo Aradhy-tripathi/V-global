@@ -6,16 +6,15 @@ import "swiper/css";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-import visionImg from "../assets/image/Image.png";
+import visionImg from "../assets/image/Image.webp";
 import velocityImg from "../assets/image/Velocity.webp";
 import valueImg from "../assets/image/Value-1.webp";
 
-gsap.registerPlugin(ScrollTrigger);
-
-const slides = [
-  { title: "Vision", image: visionImg },
-  { title: "Velocity", image: velocityImg },
-  { title: "Value", image: valueImg },
+/* ================= DEFAULT SLIDES ================= */
+const defaultSlides = [
+  { title: "Vision", image: visionImg, description: "" },
+  { title: "Velocity", image: velocityImg, description: "" },
+  { title: "Value", image: valueImg, description: "" },
 ];
 
 export default function WhoWeAre() {
@@ -23,20 +22,57 @@ export default function WhoWeAre() {
   const swiperRef = useRef(null);
   const triggerRef = useRef(null);
 
+  const [slides, setSlides] = useState(defaultSlides);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [apiLoaded, setApiLoaded] = useState(false);
 
   /* ================= MOBILE CHECK ================= */
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768);
+    const check = () => setIsMobile(window.innerWidth <= 1024);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  /* ================= GSAP PIN (DESKTOP + MOBILE) ================= */
+  /* ================= API ================= */
   useEffect(() => {
-    if (!swiperRef.current || !sectionRef.current) return;
+    const fetchWhoWeAre = async () => {
+      try {
+        const res = await fetch("/api/Whoweare");
+        const json = await res.json();
+
+        if (!json?.success || !Array.isArray(json?.data)) return;
+
+        const updatedSlides = json.data.map((apiItem) => {
+          const fallback = defaultSlides.find(
+            (s) =>
+              s.title.toLowerCase() === apiItem.heading?.toLowerCase()
+          );
+
+          return {
+            title: apiItem.heading || fallback?.title || "",
+            image: fallback?.image || apiItem.imagepath,
+            description: apiItem.shortdesc || "",
+          };
+        });
+
+        setSlides(updatedSlides);
+        setApiLoaded(true);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchWhoWeAre();
+  }, []);
+
+  /* ================= GSAP PIN ================= */
+  useEffect(() => {
+    if (!apiLoaded || !swiperRef.current || !sectionRef.current) return;
+    if (slides.length < 2) return;
+
+    gsap.registerPlugin(ScrollTrigger);
 
     const swiper = swiperRef.current;
     let lastIndex = 0;
@@ -44,39 +80,39 @@ export default function WhoWeAre() {
     triggerRef.current = ScrollTrigger.create({
       trigger: sectionRef.current,
       start: "top top",
-      end: () => "+=" + (slides.length - 1) * window.innerHeight * (isMobile ? 0.8 : 1.2),
+      end: () =>
+        "+=" +
+        (slides.length - 1) *
+          window.innerHeight *
+          (isMobile ? 1 : 1.5),
       pin: true,
-      scrub: isMobile ? 0.5 : 0.3,
+      scrub: isMobile ? 1 : 1.5,
       anticipatePin: 1,
       pinSpacing: true,
-
       snap: {
         snapTo: 1 / (slides.length - 1),
-        duration: isMobile ? 0.3 : 0.5,
+        duration: 0.8,
         ease: "power2.inOut",
       },
-
       onUpdate: (self) => {
-        const rawProgress = self.progress * (slides.length - 1);
-        const targetIndex = Math.floor(rawProgress + 0.4);
-        const clampedIndex = Math.min(Math.max(targetIndex, 0), slides.length - 1);
-
-        if (clampedIndex !== lastIndex) {
-          swiper.slideTo(clampedIndex, isMobile ? 500 : 600);
-          lastIndex = clampedIndex;
+        const index = Math.round(
+          self.progress * (slides.length - 1)
+        );
+        if (index !== lastIndex) {
+          swiper.slideTo(index, 800);
+          lastIndex = index;
         }
       },
     });
 
     return () => triggerRef.current?.kill();
-  }, [isMobile]);
+  }, [slides, isMobile, apiLoaded]);
 
   return (
     <section
       ref={sectionRef}
       className="bg-white dark:bg-[#0f0f0f] transition-colors duration-300"
     >
-      {/* DESKTOP HEIGHT CONTROL */}
       <div className="min-h-screen py-20 flex items-center">
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center w-full">
 
@@ -86,16 +122,13 @@ export default function WhoWeAre() {
               Who We Are
             </h2>
 
-            {/* SMOOTH TITLE TRANSITION */}
-            <h5 className="text-2xl font-semibold mb-16 text-center md:text-left text-black dark:text-white transition-all duration-500 ease-in-out">
-              {slides[activeIndex].title}
+            <h5 className="text-2xl font-semibold mb-8 md:mb-16 text-center md:text-left text-black dark:text-white">
+              {slides[activeIndex]?.title}
             </h5>
 
-            <p className="max-w-md hidden md:block text-gray-900 dark:text-gray-400 transition-opacity duration-300">
-              At V Global, we're more than a service provider; we're your long-term
-              partner in digital transformation. With roots in Vidushi Infotech
-              (VIT), we bring over 20 years of experience delivering global
-              technology solutions.
+            {/* ✅ DESKTOP PARAGRAPH */}
+            <p className="max-w-md hidden md:block text-gray-900 dark:text-gray-400">
+              {slides[activeIndex]?.description}
             </p>
           </div>
 
@@ -104,7 +137,7 @@ export default function WhoWeAre() {
             <Swiper
               direction="vertical"
               modules={[Mousewheel]}
-              speed={600}
+              speed={800}
               allowTouchMove={false}
               onSwiper={(swiper) => (swiperRef.current = swiper)}
               onSlideChange={(swiper) =>
@@ -123,6 +156,11 @@ export default function WhoWeAre() {
               ))}
             </Swiper>
           </div>
+
+          {/* ✅ MOBILE PARAGRAPH (IMAGE KE NICHE) */}
+          <p className="md:hidden text-center text-sm text-gray-900 dark:text-gray-400  px-4">
+            {slides[activeIndex]?.description}
+          </p>
 
         </div>
       </div>

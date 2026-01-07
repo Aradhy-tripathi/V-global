@@ -6,14 +6,15 @@ import "swiper/css";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-// images
+// fallback images (UI safe)
 import step1Img from "../assets/image/your_goal.png";
 import step2Img from "../assets/image/Step-2-1.png";
 import step3Img from "../assets/image/step-3.png";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const steps = [
+/* ================= DEFAULT STEPS (UI SAFE) ================= */
+const defaultSteps = [
   {
     title: "Tell us your goals",
     desc: "Fill out the form below.",
@@ -34,7 +35,9 @@ const steps = [
 export default function HowToWorkWithUs() {
   const swiperRef = useRef(null);
   const sectionRef = useRef(null);
+  const triggerRef = useRef(null);
 
+  const [steps, setSteps] = useState(defaultSteps);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -46,40 +49,85 @@ export default function HowToWorkWithUs() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  /* ===== GSAP PIN + SCROLL CONTROL (DESKTOP + MOBILE) ===== */
+  /* ===== API INTEGRATION (CONTENT ONLY) ===== */
+  useEffect(() => {
+    const fetchSteps = async () => {
+      try {
+        const res = await fetch("/api/Howtoworkwithus");
+        const json = await res.json();
+
+        console.log("HOW TO WORK API RESPONSE", json);
+
+        if (json?.success && Array.isArray(json.data)) {
+          const updated = defaultSteps.map((step) => {
+            const apiItem = json.data.find(
+              (item) =>
+                item.heading?.toLowerCase() === step.title.toLowerCase()
+            );
+
+            return {
+              ...step,
+              title: apiItem?.heading || step.title,
+              desc: apiItem?.shortdesc || step.desc,
+            };
+          });
+
+          setSteps(updated);
+        }
+      } catch (err) {
+        console.error("HowToWork API Error:", err);
+      }
+    };
+
+    fetchSteps();
+  }, []);
+
+  /* ===== GSAP PIN + SCROLL CONTROL ===== */
   useEffect(() => {
     if (!swiperRef.current || !sectionRef.current) return;
+    if (steps.length < 2) return;
+
+    triggerRef.current?.kill();
 
     const swiper = swiperRef.current;
     let lastIndex = 0;
 
-    const trigger = ScrollTrigger.create({
+    triggerRef.current = ScrollTrigger.create({
       trigger: sectionRef.current,
       start: "top-=90 top",
-      end: () => "+=" + (steps.length - 1) * window.innerHeight * (isMobile ? 0.8 : 1.2),
+      end: () =>
+        "+=" +
+        (steps.length - 1) *
+          window.innerHeight *
+          (isMobile ? 0.8 : 1.2),
       pin: true,
       scrub: isMobile ? 0.5 : 0.3,
       anticipatePin: 1,
       pinSpacing: true,
+
       snap: {
         snapTo: 1 / (steps.length - 1),
         duration: isMobile ? 0.3 : 0.5,
         ease: "power2.inOut",
       },
-      onUpdate: (self) => {
-        const rawProgress = self.progress * (steps.length - 1);
-        const targetIndex = Math.floor(rawProgress + 0.4);
-        const clampedIndex = Math.min(Math.max(targetIndex, 0), steps.length - 1);
 
-        if (clampedIndex !== lastIndex) {
-          swiper.slideTo(clampedIndex, isMobile ? 500 : 600);
-          lastIndex = clampedIndex;
+      onUpdate: (self) => {
+        const raw = self.progress * (steps.length - 1);
+        const index = Math.round(raw);
+
+        if (index !== lastIndex) {
+          swiper.slideTo(index, isMobile ? 500 : 600);
+          lastIndex = index;
         }
       },
     });
 
-    return () => trigger.kill();
-  }, [isMobile]);
+    requestAnimationFrame(() => {
+      ScrollTrigger.refresh();
+    });
+
+    return () => triggerRef.current?.kill();
+  }, [steps, isMobile]);
 
   return (
     <section
@@ -98,14 +146,13 @@ export default function HowToWorkWithUs() {
             Working with us is simple:
           </p>
 
-          {/* ONLY ACTIVE CONTENT */}
           <div className="transition-all duration-300">
             <h5 className="text-xl md:text-[24px] font-semibold mb-1 text-black dark:text-white">
-              {activeIndex + 1}. {steps[activeIndex].title}
+              {activeIndex + 1}. {steps[activeIndex]?.title}
             </h5>
 
             <p className="text-sm md:text-base text-black dark:text-gray-200">
-              {steps[activeIndex].desc}
+              {steps[activeIndex]?.desc}
             </p>
           </div>
         </div>

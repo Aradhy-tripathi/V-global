@@ -11,64 +11,6 @@ import arrowIcon2 from "../assets/image/arrow-right.png";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const cards = [
-  {
-    title: "Custom Development of Leading Tech Stacks",
-    tags: ["Java", ".NET Core", "Optimizely", "PHP", "Shopify"],
-  },
-  {
-    title: "Mobile App Development",
-    tags: [
-      "Concept & Strategy",
-      "UI/UX Design",
-      "Native & Cross-Platform",
-      "Rigorous Testing",
-      "Deployment & Support",
-    ],
-  },
-  {
-    title: "UI Development",
-    tags: [
-      "Angular",
-      "React JS",
-      "Vue.js",
-      "HTML5, CSS3, JavaScript (ES6+)",
-      "Sass/Less",
-      "TypeScript",
-    ],
-  },
-  {
-    title: "UI/UX Design",
-    tags: [
-      "User Research & Analysis",
-      "Wireframing & Prototyping",
-      "Usability Testing",
-      "Visual Design",
-      "Interaction Design",
-    ],
-  },
-  {
-    title: "ERP and CRM Consulting & Implementation",
-    tags: [
-      "SAP Consulting",
-      "Oracle Implementation",
-      "Needs Analysis",
-      "Customization & Integration",
-      "Data Migration & Training",
-    ],
-  },
-  {
-    title: "Supply Chain Solutions",
-    tags: [
-      "O9 Solutions",
-      "Blue Yonder (JDA)",
-      "HighJump",
-      "Supply Chain Analytics",
-      "Implementation & Integration",
-    ],
-  },
-];
-
 export default function WhatWeDo() {
   const swiperRef = useRef(null);
   const sectionRef = useRef(null);
@@ -77,6 +19,7 @@ export default function WhatWeDo() {
   const scrollTriggerRef = useRef(null);
 
   const [isMobile, setIsMobile] = useState(false);
+  const [cards, setCards] = useState([]);
 
   /* ================= MOBILE DETECT ================= */
   useEffect(() => {
@@ -87,9 +30,31 @@ export default function WhatWeDo() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  /* ================= API CALL ================= */
+  useEffect(() => {
+    fetch("https://vglobal.wsisites.net/api/Whatwedodevelopementsection")
+      .then((res) => res.json())
+      .then((res) => {
+        if (res?.success && Array.isArray(res.data)) {
+          const formatted = res.data
+            .filter((item) => item.isactive && !item.isdelete)
+            .sort((a, b) => a.sortorder - b.sortorder)
+            .map((item) => ({
+              title: item.heading,
+              tags: item.languages
+                ? item.languages.split(",").map((t) => t.trim())
+                : [],
+            }));
+
+          setCards(formatted);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
   /* ================= GSAP PIN + SCROLL ================= */
   useEffect(() => {
-    if (isMobile || !swiperRef.current || !sectionRef.current) return;
+    if (isMobile || !swiperRef.current || !sectionRef.current || cards.length === 0) return;
 
     const swiper = swiperRef.current;
 
@@ -104,12 +69,14 @@ export default function WhatWeDo() {
         duration: 0.4,
         ease: "power1.inOut",
       },
-       
       onUpdate: (self) => {
         const rawProgress = self.progress * (cards.length - 1);
         const targetIndex = Math.floor(rawProgress + 0.35);
-        const clampedIndex = Math.min(Math.max(targetIndex, 0), cards.length - 1);
-        
+        const clampedIndex = Math.min(
+          Math.max(targetIndex, 0),
+          cards.length - 1
+        );
+
         if (swiper.activeIndex !== clampedIndex) {
           swiper.slideTo(clampedIndex, 500);
         }
@@ -117,7 +84,7 @@ export default function WhatWeDo() {
     });
 
     return () => scrollTriggerRef.current?.kill();
-  }, [isMobile]);
+  }, [isMobile, cards]);
 
   /* ================= SYNC GSAP WHEN SLIDE CHANGES ================= */
   const syncScrollWithSwiper = (swiper) => {
@@ -135,8 +102,8 @@ export default function WhatWeDo() {
 
   return (
     <section
-      ref={sectionRef} 
-      className="pb-20 bg-white dark:bg-[#0f0f0f]  flex items-center min-h-screen  transition-colors duration-300"
+      ref={sectionRef}
+      className="pb-20 bg-white dark:bg-[#0f0f0f] flex items-center min-h-screen transition-colors duration-300"
     >
       <div className="max-w-[1200px] w-[95%] mx-auto">
 
@@ -184,7 +151,7 @@ export default function WhatWeDo() {
           <>
             <Swiper
               modules={[Navigation, Mousewheel]}
-              allowTouchMove={true}
+              allowTouchMove
               mousewheel={{ forceToAxis: true, sensitivity: 1 }}
               onSwiper={(swiper) => (swiperRef.current = swiper)}
               onSlideChange={syncScrollWithSwiper}
@@ -207,7 +174,8 @@ export default function WhatWeDo() {
             >
               {cards.map((card, i) => (
                 <SwiperSlide key={i}>
-                  <div className="min-h-[340px] p-5 rounded-2xl bg-white dark:bg-[#151515]
+                  <div
+                    className="min-h-[340px] p-5 rounded-2xl bg-white dark:bg-[#151515]
                     border border-gray-200 dark:border-gray-700 shadow-sm
                     transition flex flex-col"
                   >
@@ -215,25 +183,22 @@ export default function WhatWeDo() {
                       {card.title}
                     </h4>
 
-                    <div className="flex flex-col gap-2 ">
+                    <div className="flex flex-col gap-2">
                       {card.tags.map((tag, t) => (
                         <span
                           key={t}
                           className="px-3 py-1 text-sm rounded-md
-                          bg-purple-100 text-purple-900 border border-purple-200 w-fit 
+                          bg-purple-100 text-purple-900 border border-purple-200 w-fit
                           dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-700"
                         >
                           {tag}
                         </span>
                       ))}
-                    </div>
-                  </div>
-                </SwiperSlide>
-              ))}
+                    </div> 
+                  </div> 
+                </SwiperSlide> 
+              ))} 
             </Swiper>
-
-            {/* NAVIGATION */}
-          
           </>
         )}
       </div>

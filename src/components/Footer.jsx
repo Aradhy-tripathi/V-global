@@ -31,8 +31,8 @@ export default function Footer() {
               ViGlobal Inc, Plaza II Suite 320 – 317 George Street,
               New Brunswick, NJ 08901
             </p>
-          </div>
-
+          </div> 
+          
           {/* Right */}
           <div className="text-[16px] text-[#6c757d] dark:text-gray-400 md:text-right">
             <p>

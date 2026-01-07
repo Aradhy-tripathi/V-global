@@ -1,102 +1,131 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import globeVideo from "../assets/image/3d-globe-ai-technology-rotated-animation.webm";
+
+const BASE_URL = "https://vglobal.wsisites.net/";
 
 const VideoSection = () => {
   const [scale, setScale] = useState(0.5);
   const [borderRadius, setBorderRadius] = useState(50);
   const [isMobile, setIsMobile] = useState(false);
+  const [videoUrl, setVideoUrl] = useState(globeVideo);
   const videoSectionRef = useRef(null);
 
-  // Check if device is mobile or tablet
+  /* ================= MOBILE CHECK ================= */
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 1024); // Mobile + iPad
-    };
-    
+    const checkMobile = () => setIsMobile(window.innerWidth <= 1024);
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  /* ================= FETCH VIDEO FROM API ================= */
   useEffect(() => {
-    // Only run scroll animation on desktop
+    const fetchVideo = async () => {
+      try {
+        const res = await fetch(
+          "https://vglobal.wsisites.net/api/CyclicImages/"
+        );
+        const json = await res.json();
+
+        console.log("VIDEO API RESPONSE", json);
+
+        if (
+          json?.success &&
+          Array.isArray(json?.data) &&
+          json.data.length > 0
+        ) {
+          const videoData = json.data[0];
+
+          if (videoData?.str_ImagePath && videoData.b_Active) {
+            const fullVideoUrl =
+              videoData.str_ImagePath.startsWith("http")
+                ? videoData.str_ImagePath
+                : BASE_URL + videoData.str_ImagePath.replace("../", "");
+
+            setVideoUrl(fullVideoUrl);
+
+            console.log("Video URL set to:", fullVideoUrl);
+          }
+        }
+      } catch (error) {
+        console.error("Video API Error:", error);
+        // fallback video stays
+      }
+    };
+
+    fetchVideo();
+  }, []);
+
+  /* ================= SCROLL ANIMATION (DESKTOP ONLY) ================= */
+  useEffect(() => {
     if (isMobile) return;
 
     const handleScroll = () => {
       if (!videoSectionRef.current) return;
 
-      const section = videoSectionRef.current;
-      const rect = section.getBoundingClientRect();
+      const rect = videoSectionRef.current.getBoundingClientRect();
       const windowHeight = window.innerHeight;
-      const sectionTop = rect.top;
-      
-      // Start animation when section is 80% in viewport
+
       const startPoint = windowHeight * 0.8;
       const endPoint = windowHeight * 0.2;
 
-      if (sectionTop <= startPoint && sectionTop >= endPoint) {
-        // Calculate progress (0 to 1)
-        const progress = 1 - ((sectionTop - endPoint) / (startPoint - endPoint));
+      if (rect.top <= startPoint && rect.top >= endPoint) {
+        const progress =
+          1 - (rect.top - endPoint) / (startPoint - endPoint);
 
-        // Scale from 0.5 to 1
-        const newScale = 0.5 + (progress * 0.5);
-        setScale(Math.min(Math.max(newScale, 0.5), 1));
-
-        // Border radius from 50 to 0
-        const newRadius = 50 - (progress * 50);
-        setBorderRadius(Math.max(newRadius, 0));
-      } else if (sectionTop > startPoint) {
+        setScale(0.5 + progress * 0.5);
+        setBorderRadius(50 - progress * 50);
+      } else if (rect.top > startPoint) {
         setScale(0.5);
         setBorderRadius(50);
-      } else if (sectionTop < endPoint) {
+      } else {
         setScale(1);
         setBorderRadius(0);
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
     handleScroll();
-
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [isMobile]);
 
   return (
     <section
       ref={videoSectionRef}
-      className="relative w-full overflow-hidden"
+      className={`relative w-full overflow-hidden ${
+        isMobile ? "h-[50vh]" : ""
+      }`}
     >
       <div
         className={`relative w-full overflow-hidden mx-auto ${
-          isMobile ? '' : 'transition-all duration-300 ease-out'
+          isMobile ? "" : "transition-all duration-300 ease-out"
         }`}
         style={
           isMobile
             ? {
-                // Mobile/iPad: Proper height like screenshot
-                width: '100%',
-                height: '50vh', // Changed from 100vh to 50vh
-                borderRadius: '0px',
+                width: "100%",
+                height: "50vh",
+                borderRadius: "0px",
               }
             : {
-                // Desktop: Animated zoom
                 transform: `scale(${scale})`,
                 borderRadius: `${borderRadius}px`,
-                maxWidth: scale === 1 ? '100%' : '90%',
-                height: scale === 1 ? '100vh' : '60vh',
+                maxWidth: scale === 1 ? "100%" : "90%",
+                height: scale === 1 ? "100vh" : "60vh",
               }
         }
       >
         <video
+          key={videoUrl}
           autoPlay
           muted
           loop
           playsInline
-          className="absolute inset-0 w-full h-full object-cover object-center"
+          className="absolute inset-0 w-full h-full object-cover"
         >
-          <source src={globeVideo} type="video/mp4" />
+          <source src={videoUrl} type="video/webm" />
         </video>
 
-        {/* Optional subtle overlay */}
         <div className="absolute inset-0 bg-black/10 md:bg-transparent" />
       </div>
     </section>
